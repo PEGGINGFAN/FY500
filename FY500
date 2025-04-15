@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, Slider, Button, Switch, ScrollView, StyleSheet, Alert } from 'react-native';
 import RNFS from 'react-native-fs';
-import DocumentPicker from 'react-native-document-picker'; // Ajout pour sélectionner un fichier
+import DocumentPicker from 'react-native-document-picker';
+import axios from 'axios'; // Ajout pour les requêtes API
 
 const PatternCreator = () => {
   const [patternName, setPatternName] = useState('Custom Pattern');
@@ -48,9 +49,9 @@ const PatternCreator = () => {
     setSegments(updatedSegments);
   };
 
-  // Exporter le pattern en JSON
-  const exportPattern = async () => {
-    const pattern = {
+  // Générer le pattern au format JSON
+  const generatePattern = () => {
+    return {
       name: patternName,
       settings: {
         stroke_percentage: segments.length > 0 ? segments[0].depth_percentage : 50,
@@ -72,7 +73,11 @@ const PatternCreator = () => {
       })),
       total_duration_seconds: parseInt(totalDuration),
     };
+  };
 
+  // Exporter le pattern en JSON
+  const exportPattern = async () => {
+    const pattern = generatePattern();
     const json = JSON.stringify(pattern, null, 2);
     const path = `${RNFS.DocumentDirectoryPath}/pattern_${patternName}.json`;
 
@@ -100,10 +105,10 @@ const PatternCreator = () => {
       setPumpFrequency(pattern.settings.aux_1.squirt_frequency);
 
       const importedSegments = pattern.segments.map(segment => ({
-        speed_cm_s: (segment.speed_cpm / 200) * 24, // Conversion CPM en cm/s
+        speed_cm_s: (segment.speed_cpm / 200) * 24,
         speed_cpm: segment.speed_cpm,
         speed_percentage: segment.speed_percentage,
-        depth_cm: (segment.depth_percentage / 100) * 45.7, // Conversion % en cm
+        depth_cm: (segment.depth_percentage / 100) * 45.7,
         depth_percentage: segment.depth_percentage,
         duration_seconds: segment.duration_seconds,
         random_pause_after: segment.random_pause_after,
@@ -119,6 +124,20 @@ const PatternCreator = () => {
       } else {
         Alert.alert('Erreur', 'Échec de l’importation : ' + error.message);
       }
+    }
+  };
+
+  // Synchronisation avec la FY500 via l’API (future)
+  const syncPatternWithFY500 = async () => {
+    const pattern = generatePattern();
+    try {
+      // URL et configuration de l’API à remplacer par les vraies valeurs une fois disponibles
+      const response = await axios.post('https://api.fuckyeah.uk/sync-pattern', pattern, {
+        headers: { 'Content-Type': 'application/json' },
+      });
+      Alert.alert('Succès', 'Pattern synchronisé avec la FY500 !');
+    } catch (error) {
+      Alert.alert('Erreur', 'Échec de la synchronisation : ' + error.message);
     }
   };
 
@@ -220,10 +239,15 @@ const PatternCreator = () => {
         </View>
       ))}
 
-      {/* Boutons pour ajouter et importer */}
+      {/* Boutons pour ajouter, importer, exporter, et synchroniser */}
       <Button title="Ajouter un Segment" onPress={addSegment} />
       <Button title="Importer Pattern" onPress={importPattern} />
       <Button title="Exporter Pattern en JSON" onPress={exportPattern} />
+      <Button
+        title="Synchroniser avec FY500 (API indisponible)"
+        onPress={syncPatternWithFY500}
+        disabled={true} // Désactivé jusqu’à ce que l’API soit disponible
+      />
 
     </ScrollView>
   );
